@@ -45,7 +45,7 @@ int main()
 		exit(1);
 	}
 
-	std::list<std::pair<char*, MyThread*>> listOfThreads;
+	std::list<std::pair<std::pair<char*, std::vector<char*>>, MyThread*>> listOfThreads;
 	SOCKET AcceptSocket;
 	CRITICAL_SECTION cSection;
 	InitializeCriticalSection(&cSection);
@@ -66,7 +66,7 @@ int main()
 			bool ok = true;
 			// checks if the name exists in the list
 			for (auto it : listOfThreads) {
-				if (!strcmp(it.first, name)) {
+				if (!strcmp(it.first.first, name)) {
 					iResult = send(AcceptSocket, "nack", 4, 0);
 					if (iResult == SOCKET_ERROR || iResult < 0) {
 						printf("send() failed. %d\n", WSAGetLastError());
@@ -85,7 +85,7 @@ int main()
 					printf("%s connected.\n", name);
 
 					MyThread* myThread = new MyThread(AcceptSocket, &listOfThreads, &cSection);
-					listOfThreads.insert(listOfThreads.end(), { name, myThread });
+					listOfThreads.insert(listOfThreads.end(), { {name, std::vector<char*>()}, myThread });
 					myThread->start();
 				}
 			}
@@ -95,7 +95,7 @@ int main()
 	printf("Exiting...\n");
 
 	for (auto it = listOfThreads.begin(); it != listOfThreads.end(); ++it) {
-		delete[] (it->first);
+		delete[] (it->first.first);
 		delete (it->second);
 	}
 
