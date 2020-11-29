@@ -81,11 +81,13 @@ int main()
 				if (iResult == SOCKET_ERROR || iResult < 0) {
 					printf("send() failed. %d\n", WSAGetLastError());
 				}
-				printf("%s connected.\n", name);
+				else {
+					printf("%s connected.\n", name);
 
-				MyThread* myThread = new MyThread(AcceptSocket, &listOfThreads, &cSection);
-				listOfThreads.insert(listOfThreads.end(), {name, myThread});
-				myThread->start();
+					MyThread* myThread = new MyThread(AcceptSocket, &listOfThreads, &cSection);
+					listOfThreads.insert(listOfThreads.end(), { name, myThread });
+					myThread->start();
+				}
 			}
 		}
 	} while (AcceptSocket != INVALID_SOCKET);

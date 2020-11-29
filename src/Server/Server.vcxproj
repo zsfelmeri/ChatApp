@@ -144,7 +144,6 @@
     <ClCompile Include="SysThread.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Client.h" />
     <ClInclude Include="MyThread.h" />
     <ClInclude Include="SysThread.h" />
   </ItemGroup>

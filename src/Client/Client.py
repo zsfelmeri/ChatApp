@@ -2,6 +2,7 @@ import socket
 import sys, threading
 from tkinter import *
 import time
+import msvcrt
 
 name = ''
 
@@ -97,8 +98,28 @@ elif result == 'ack':
 	msg_box.place(x=5, y=570, width=450, height=100)
 
 	def send_msg():
-		if msg_box.text != '':
-			
+		msg = msg_box.get("1.0", "end-1c")
+		if msg != '':
+			option = '1'
+			# data = f"{option} {selected_person.get()} {name} {msg}"
+			data = f"{option} dsa {name} {msg}"
+			# print(data)
+			try:
+				client.sendall(data.encode())
+				chat_box.config(state="normal")
+				chat_box.insert("end", f" <You>  ")
+				chat_box.insert("end", f"{msg}\n",)
+				chat_box.config(state="disabled")
+				msg_box.delete("1.0", "end")
+			except:
+				print("Connection error!")
+				client.close()
+
+
+	def enter_pressed():
+		if msvcrt.kbhit():
+			if ord(msvcrt.getche().decode()) == 13:
+				send_msg()
 
 
 	send_btn = Button(window, text="Send", command=send_msg)
@@ -106,44 +127,89 @@ elif result == 'ack':
 
 
 	selected_person = StringVar()
-	option = 'sendlistofnames'
+	option = ''
 
-	def update_person_list():
-		radiobuttons_persons = []
+	def receive_msg():
 		while True:
-			PERSONS = []
-			client.sendall(option.encode())
+			try:
+				# 0 - type
+				# 1 - to
+				# 2 - from
+				# 3 - msg
+				data = client.recv(36567).decode().split()
+				print(data)
 
-			while True:
-				try:
-					data = client.recv(255).decode()
-				except:
-					sys.exit()
-
-				if data == 'ack':
-					break
-				PERSONS.append(data)
-
-			# print(PERSONS)
-
-			for b in radiobuttons_persons:
-				b.destroy()
-
-			radiobuttons_persons = []
-
-			# print(selected_person.get())
-
-			for v in PERSONS:
-				if v != name:
-					b = Radiobutton(person_box, text=v, variable=selected_person, bg="black", fg="white", indicatoron=0, selectcolor="gray")
-					b.pack(anchor="center")
-					radiobuttons_persons.append(b)
-
-			time.sleep(10)
+				if data[0] == '1':
+					if name != data[2]:
+						chat_box.config(state="normal")
+						chat_box.insert("end", f" <{data[2]}>  ")
+						chat_box.insert("end", f"{data[3]}\n")
+						chat_box.config(state="disabled")
+					else:
+						pass
+			except:
+				print("Connection error!")
+				client.close()
+				break
 
 
-	update_person_list_thread = threading.Thread(target=update_person_list)
-	update_person_list_thread.start()
+	check_enter_thread = threading.Thread(target=enter_pressed)
+	check_enter_thread.start()
+
+	receive_thread = threading.Thread(target=receive_msg)
+	receive_thread.start()
+
+	# def chat_logic():
+	# 	radiobuttons_persons = []
+	# 	file_attachment = False
+
+	# 	while True:
+	# 		# option = 1 --> Private message
+	# 		# option = 2 --> Group message
+	# 		# option = 3 --> Send file
+	# 		# option = 4 --> Update list of users
+	# 		if selected_person.get() != '':
+	# 			option = '1'
+	# 			data = f"{option} {selected_person.get()} {name}"
+
+	# 		client.sendall(data.encode())
+
+	# 		# have to make another thread for it!!!!!!!
+	# 		if option == '4':
+	# 			PERSONS = []
+
+	# 			while True:
+	# 				try:
+	# 					data = client.recv(255).decode()
+	# 				except:
+	# 					sys.exit()
+
+	# 				if data == 'CTS':
+	# 					break
+	# 				PERSONS.append(data)
+
+	# 			for b in radiobuttons_persons:
+	# 				b.destroy()
+
+	# 			radiobuttons_persons = []
+
+	# 			for v in PERSONS:
+	# 				if v != name:
+	# 					b = Radiobutton(person_box, text=v, variable=selected_person, bg="black", fg="white", indicatoron=0, selectcolor="gray")
+	# 					b.pack(anchor="center")
+	# 					radiobuttons_persons.append(b)
+
+	# 			if selected_person.get() != '':
+	# 				for b in radiobuttons_persons:
+	# 					if b.cget('text') == selected_person.get():
+	# 						b.select()
+	# 						break
+	# 			else:
+	# 				selected_person.set('')
+
+
+	# chat_logic_thread = threading.Thread(target=chat_logic)
+	# chat_logic_thread.start()
 
 	window.mainloop()
 	client.close()

@@ -8,65 +8,86 @@ void MyThread::run(void) {
 	char* str = new char[255];
 	bool exiting = false;
 	int iResult;
+	char* RcvBuf = new char[36567];
 
+	strcpy(str, m_listOfThreads->back().first);
 	do {
-		for (auto it = m_listOfThreads->begin(); it != m_listOfThreads->end(); ++it) {
+		auto it = m_listOfThreads->begin();
+		while(it != m_listOfThreads->end()) {
 			if (!it->second->isRunning() && it->second->isExited()) {
-				//auto temp = it;
-				m_listOfThreads->erase(it);
-				//delete[] temp->first;
-				//delete[] temp->second;
+				auto temp = *it;
+				if (it == m_listOfThreads->begin()) {
+					m_listOfThreads->erase(it);
+				}
+				else {
+					m_listOfThreads->erase(it--);
+				}
+				delete[] temp.first;
+				delete[] temp.second;
 			}
+			++it;
 		}
 
 		exiting = false;
-		char *OptionBuf = new char[25];
-
-		iResult = recv(m_socket, OptionBuf, 25, 0);
-		if (iResult == SOCKET_ERROR || iResult <= 0) {
+		iResult = recv(m_socket, RcvBuf, 36567, 0);
+		if (iResult == SOCKET_ERROR || iResult < 0) {
+			//printf("recv() failed. %d\n", WSAGetLastError());
 			exiting = true;
-			break;
 		}
-		OptionBuf[(iResult > 25)? 25 : iResult] = '\0';
+		else {
+			RcvBuf[(iResult > 36567)? 36567 : iResult] = '\0';
+			int type;
+			char from[255], to[255], msg[36056];
+			sscanf(RcvBuf, "%d %s %s %s", &type, to, from, msg);
 
-		if (!strcmp(OptionBuf, "sendlistofnames")) {
-			std::vector<char*> names;
-			for (auto person = m_listOfThreads->begin(); person != m_listOfThreads->end(); ++person) {
-				names.push_back(person->first);
-			}
-
-			for (int i = 0; i < (int)names.size(); ++i) {
-				strcpy(str, names[i]);
-				iResult = send(m_socket, names[i], strlen(names[i]), 0);
-				if (iResult == SOCKET_ERROR || iResult < 0) {
-					exiting = true;
-					break;
+			//Private message
+			if (type == 1) {
+				for (auto it = m_listOfThreads->begin(); it != m_listOfThreads->end(); ++it) {
+					if (!strcmp(it->first, to)) {
+						iResult = send(m_socket, RcvBuf, strlen(RcvBuf), 0);
+						if (iResult == SOCKET_ERROR || iResult < 0) {
+							printf("send() failed. %d\n", WSAGetLastError());
+							exiting = true;
+						}
+						break;
+					}
 				}
-				Sleep(100);
 			}
+			//Group message
+			else if (type == 2) {
 
-			iResult = send(m_socket, "ack", 3, 0);
-			if (iResult == SOCKET_ERROR || iResult < 0) {
-				exiting = true;
-				break;
+			}
+			//Send file
+			else if (type == 3) {
+
+			}
+			//Update list of users
+			else if (type == 4) {
+
 			}
 		}
 
-		delete[] OptionBuf;
-		OptionBuf = nullptr;
 	} while (m_socket != SOCKET_ERROR && !exiting);
 
 	printf("%s disconnected.\n", str);
-	for (auto it = m_listOfThreads->begin(); it != m_listOfThreads->end(); ++it) {
+	auto it = m_listOfThreads->begin();
+	while(it != m_listOfThreads->end()) {
 		if (!strcmp(it->first, str)) {
-			//auto temp = it;
-			m_listOfThreads->erase(it);
-			//delete temp->first;
-			//delete temp->second;
+			auto temp = *it;
+			if (it == m_listOfThreads->begin()) {
+				m_listOfThreads->erase(it);
+			}
+			else {
+				m_listOfThreads->erase(it--);
+			}
+			delete temp.first;
+			delete temp.second;
 			break;
 		}
+		++it;
 	}
 	delete[] str;
+	delete[] RcvBuf;
 
 	/*strcpy_s(SendBuf, "Hello!\n .........\nHave a nice day!\n");
 	int len = strlen(SendBuf);
