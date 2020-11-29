@@ -92,7 +92,6 @@ void MyThread::run(void) {
 					if (!strcmp(it->first.first, to)) {
 						iResult = send(it->second->m_socket, RcvBuf, strlen(RcvBuf), 0);
 						if (iResult == SOCKET_ERROR || iResult < 0) {
-							printf("send() failed. %d\n", WSAGetLastError());
 							exiting = true;
 						}
 						break;
@@ -107,7 +106,6 @@ void MyThread::run(void) {
 							if (!strcmp(group, to)) {
 								iResult = send(it->second->m_socket, RcvBuf, strlen(RcvBuf), 0);
 								if (iResult == SOCKET_ERROR || iResult < 0) {
-									printf("send() failed. %d\n", WSAGetLastError());
 									exiting = true;
 								}
 								break;
@@ -118,7 +116,29 @@ void MyThread::run(void) {
 			}
 			//Send file
 			else if (type == 3) {
+				for (auto it = m_listOfThreads->begin(); it != m_listOfThreads->end(); ++it) {
+					if (!strcmp(it->first.first, to)) {
+						while (strcmp(msg, "Done")) {
+							iResult = send(it->second->m_socket, RcvBuf, strlen(RcvBuf), 0);
+							if (iResult == SOCKET_ERROR || iResult < 0) {
+								goto disconnect;
+							}
 
+							iResult = recv(m_socket, RcvBuf, 36567, 0);
+							if (iResult == SOCKET_ERROR || iResult < 0) {
+								goto disconnect;
+							}
+							RcvBuf[(iResult > 36567) ? 36567 : iResult] = '\0';
+							sscanf(RcvBuf, "%d %s %s %s", &type, to, from, msg);
+						}
+
+						iResult = send(it->second->m_socket, RcvBuf, strlen(RcvBuf), 0);
+						if (iResult == SOCKET_ERROR || iResult < 0) {
+							goto disconnect;
+						}
+						break;
+					}
+				}
 			}
 		}
 

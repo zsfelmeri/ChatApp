@@ -1,6 +1,7 @@
 import socket
-import sys, threading
+import sys, threading, os
 from tkinter import *
+from tkinter import filedialog
 import time
 from pynput.keyboard import Listener, Key
 
@@ -101,8 +102,10 @@ elif result == 'ack':
 	msg_box.place(x=5, y=570, width=450, height=100)
 
 	file_attachment = False
+	filename = ''
 
 	def send_msg():
+		global file_attachment, filename
 		msg = msg_box.get("1.0", "end-1c")
 		to = "*"*255
 		ok = False
@@ -112,6 +115,7 @@ elif result == 'ack':
 				option = '2'
 				to = selected_group.get()
 				selected_person.set('')
+				file_attachment = False
 			elif selected_person.get() != '':
 				option = '1'
 				to = selected_person.get()
@@ -121,6 +125,7 @@ elif result == 'ack':
 				ok = True
 			else:
 				ok = True
+				file_attachment = False
 
 			if not ok:
 				data = f"{option} {to} {name} {msg}"
@@ -145,13 +150,46 @@ elif result == 'ack':
 			option = '3'
 			selected_group.set('None')
 			to = selected_person.get()
-			# TODO: build up the message -> read file and send to the server
+			file_attachment = False
 
-			data = f"{option} {to} {name} {msg}"
+			try:
+				# import pdb;pdb.set_trace()
+				data = f"{option} {to} {name} {os.path.basename(filename)}"
+				client.sendall(data.encode())
 
+				chat_box.config(state="normal")
+				chat_box.insert("end", f" <File - You>  {os.path.basename(filename)}\n")
+				chat_box.config(state="disabled")
+				msg_box.delete("1.0", "end")
+
+				with open(filename, "r") as reader:
+					while True:
+						content = reader.read(36050)
+						if not content:
+							break
+
+						msg = content
+						data = f"{option} {to} {name} {msg}"
+						client.sendall(data.encode())
+						time.sleep(0.1)
+
+				msg = 'Done'
+				data = f"{option} {to} {name} {msg}"
+				client.sendall(data.encode())
+			except:
+				client.close()
 
 	send_btn = Button(window, text="Send", command=send_msg)
-	send_btn.place(x=475, y=573, width=95, height=95)
+	send_btn.place(x=475, y=568, width=95, height=70)
+
+	def browse_file():
+		global file_attachment, filename
+		file_attachment = True
+		filename = filedialog.askopenfilename(initialdir=".", title="Select A File", filetype=(("text", "*.txt"), ("document", "*.pdf"), ("document word", "*.docx"), ("image jpeg", "*.jpg"), ("image png", "*.png"), ("image bmp", "*.bmp"), ("image gif", "*.gif"), ("All Files", "*.*")))
+
+
+	file_btn = Button(window, text="File", command=browse_file)
+	file_btn.place(x=475, y=638, width=95, height=30)
 
 	def receive_msg(radiobuttons_persons, PERSONS, selected_person):
 		while True:
@@ -162,16 +200,31 @@ elif result == 'ack':
 				# 3 - msg
 				data = client.recv(36567).decode().split(' ')
 
+				# Private message
 				if data[0] == '1':
 					chat_box.config(state="normal")
-					chat_box.insert("end", f" <{data[2]}>  ")
-					chat_box.insert("end", f"{data[3]}\n")
+					chat_box.insert("end", f" <{data[2]}>  {data[3]}\n")
 					chat_box.config(state="disabled")
+				# Group message
 				elif data[0] == '2':
 					chat_box.config(state="normal")
-					chat_box.insert("end", f" <Group: {data[1]} - {data[2]}>  ")
-					chat_box.insert("end", f"{data[3]}\n")
+					chat_box.insert("end", f" <Group: {data[1]} - {data[2]}>  {data[3]}\n")
 					chat_box.config(state="disabled")
+				# Send file
+				elif data[0] == '3':
+					chat_box.config(state="normal")
+					chat_box.insert("end", f" <File - {data[2]}>  {data[3]}\n")
+					chat_box.config(state="disabled")
+
+					filename = data[3]
+					with open(os.path.join(".", filename), "w") as writer:
+						while True:
+							if data[3] == 'Done':
+								break
+
+							writer.write(data[3])
+							data = client.recv(36567).decode().split()
+				# Update list of users
 				elif data[0] == '4':
 					while True:
 						if data[3] == 'CTS':
@@ -200,58 +253,6 @@ elif result == 'ack':
 
 	receive_thread = threading.Thread(target=receive_msg, args=(radiobuttons_persons, PERSONS, selected_person))
 	receive_thread.start()
-
-	# def chat_logic():
-	# 	radiobuttons_persons = []
-	# 	file_attachment = False
-
-	# 	while True:
-	# 		# option = 1 --> Private message
-	# 		# option = 2 --> Group message
-	# 		# option = 3 --> Send file
-	# 		# option = 4 --> Update list of users
-	# 		if selected_person.get() != '':
-	# 			option = '1'
-	# 			data = f"{option} {selected_person.get()} {name}"
-
-	# 		client.sendall(data.encode())
-
-	# 		# have to make another thread for it!!!!!!!
-	# 		if option == '4':
-	# 			PERSONS = []
-
-	# 			while True:
-	# 				try:
-	# 					data = client.recv(255).decode()
-	# 				except:
-	# 					sys.exit()
-
-	# 				if data == 'CTS':
-	# 					break
-	# 				PERSONS.append(data)
-
-	# 			for b in radiobuttons_persons:
-	# 				b.destroy()
-
-	# 			radiobuttons_persons = []
-
-	# 			for v in PERSONS:
-	# 				if v != name:
-	# 					b = Radiobutton(person_box, text=v, variable=selected_person, bg="black", fg="white", indicatoron=0, selectcolor="gray")
-	# 					b.pack(anchor="center")
-	# 					radiobuttons_persons.append(b)
-
-	# 			if selected_person.get() != '':
-	# 				for b in radiobuttons_persons:
-	# 					if b.cget('text') == selected_person.get():
-	# 						b.select()
-	# 						break
-	# 			else:
-	# 				selected_person.set('')
-
-
-	# chat_logic_thread = threading.Thread(target=chat_logic)
-	# chat_logic_thread.start()
 
 	window.mainloop()
 	client.close()
