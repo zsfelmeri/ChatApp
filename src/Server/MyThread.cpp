@@ -11,12 +11,12 @@ void MyThread::run(void) {
 	char* RcvBuf = new char[36567];
 
 	strcpy(myName, m_listOfThreads->back().first.first);
-	for (auto it = m_listOfThreads->begin(); it != m_listOfThreads->end(); ++it) {
+	/*for (auto it = m_listOfThreads->begin(); it != m_listOfThreads->end(); ++it) {
 		if (!strcmp(it->first.first, "asd") || !strcmp(it->first.first, "dsa")) {
 			char buff[] = "Kings";
 			it->first.second.push_back(buff);
 		}
-	}
+	}*/
 
 	//Update list of users
 	std::vector<char*> usersList;
@@ -118,24 +118,58 @@ void MyThread::run(void) {
 			else if (type == 3) {
 				for (auto it = m_listOfThreads->begin(); it != m_listOfThreads->end(); ++it) {
 					if (!strcmp(it->first.first, to)) {
-						while (strcmp(msg, "Done")) {
+						iResult = send(it->second->m_socket, RcvBuf, strlen(RcvBuf), 0);
+						if (iResult == SOCKET_ERROR || iResult < 0) {
+							goto disconnect;
+						}
+
+						iResult = recv(m_socket, RcvBuf, 36056, 0);
+						if (iResult == SOCKET_ERROR || iResult < 0) {
+							goto disconnect;
+						}
+						RcvBuf[(iResult > 36056) ? 36056 : iResult] = '\0';
+						
+						bool ok = false;
+						while (strcmp(RcvBuf, "Done")) {
+							ok = true;
 							iResult = send(it->second->m_socket, RcvBuf, strlen(RcvBuf), 0);
 							if (iResult == SOCKET_ERROR || iResult < 0) {
 								goto disconnect;
 							}
 
-							iResult = recv(m_socket, RcvBuf, 36567, 0);
+							iResult = recv(m_socket, RcvBuf, 36056, 0);
 							if (iResult == SOCKET_ERROR || iResult < 0) {
 								goto disconnect;
 							}
-							RcvBuf[(iResult > 36567) ? 36567 : iResult] = '\0';
-							sscanf(RcvBuf, "%d %s %s %s", &type, to, from, msg);
+							RcvBuf[(iResult > 36056) ? 36056 : iResult] = '\0';
 						}
 
+						if (ok) {
+							iResult = send(it->second->m_socket, RcvBuf, strlen(RcvBuf), 0);
+							if (iResult == SOCKET_ERROR || iResult < 0) {
+								goto disconnect;
+							}
+						}
+						break;
+					}
+				}
+			}
+			//Update list of groups (new group created)
+			else if (type == 5) {
+				for (auto it = m_listOfThreads->begin(); it != m_listOfThreads->end(); ++it) {
+					if (strcmp(it->first.first, myName)) {
 						iResult = send(it->second->m_socket, RcvBuf, strlen(RcvBuf), 0);
 						if (iResult == SOCKET_ERROR || iResult < 0) {
 							goto disconnect;
 						}
+					}
+				}
+			}
+			//Join to a group
+			else if (type == 6) {
+				for (auto it = m_listOfThreads->begin(); it != m_listOfThreads->end(); ++it) {
+					if (!strcmp(it->first.first, myName)) {
+						it->first.second.push_back(to);
 						break;
 					}
 				}
