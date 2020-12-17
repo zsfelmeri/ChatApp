@@ -357,3 +357,4 @@ MigrationBackup/
 FodyWeavers.xsd
 
 *__pycache__/*
+*.docx
