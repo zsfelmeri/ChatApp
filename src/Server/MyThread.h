@@ -1,10 +1,10 @@
 #pragma once
-#include <stdio.h>
-#include <WinSock2.h>
-#include "SysThread.h"
 #ifndef MYTHREAD_H
 #define MYTHREAD_H
 
+#include <stdio.h>
+#include <WinSock2.h>
+#include "SysThread.h"
 #include <list>
 #include <vector>
 #include <Windows.h>
@@ -16,6 +16,7 @@ public:
 
 protected:
 	virtual void run(void);
+	void updateUsersList();
 
 private:
 	SOCKET m_socket;
