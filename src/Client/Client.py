@@ -3,7 +3,6 @@ import sys, threading, os
 from tkinter import *
 from tkinter import filedialog
 import time
-from pynput.keyboard import Listener, Key
 
 name = ''
 # stop_thread = False
