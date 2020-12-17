@@ -1,10 +1,10 @@
 # ChatApp
 
 ### Features
-   - __Private message
-   - __Group message
-   - __File transfer
-   - __Create groups
+   - __Private message__
+   - __Group message__
+   - __File transfer__
+   - __Create groups__
    - __Join groups__
 
 The application has two big parts:
