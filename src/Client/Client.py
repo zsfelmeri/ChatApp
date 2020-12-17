@@ -6,8 +6,8 @@ import time
 from pynput.keyboard import Listener, Key
 
 name = ''
-stop_thread = False
-sync_ok = False
+# stop_thread = False
+sync_ok_file = False
 
 window = Tk()
 window.title("ChatApp")
@@ -83,6 +83,36 @@ def popup_confirm_file(size, file, sender):
 	popup.mainloop()
 
 
+def popup_join_group():
+	global selected_group, GROUPS
+
+	def join_group():
+		for grp, pwd in GROUPS:
+			if selected_group.get() == grp and et_password.get() == pwd:
+				option = '6'
+				data = f"{option} {selected_group.get()} {name} join"
+				try:
+					client.sendall(data.encode())
+				except:
+					clinet.close()
+				option = ''
+				break
+
+		popup_grp.destroy()
+
+	popup_grp = Tk()
+	popup_grp.wm_title("Join Group")
+	popup_grp.geometry("300x200+700+300")
+	popup_grp.configure(bg="black")
+	popup_grp.resizable(False, False)
+	Label(popup_grp, text=f"You want to join to {selected_group.get()} group!", bg="black", fg="green").place(x=80, y=10, height=18)
+	Label(popup_grp, text="Password: ", bg="black", fg="white").grid(row=1, column=0, padx=(20, 10), pady=30, sticky="W")
+	et_password = Entry(popup_grp, width=20, bg="white")
+	et_password.grid(row=1, column=1, pady=10, sticky="W")
+	Button(popup_grp, text="Join", command=join_group).grid(row=2, column=1, padx=20, pady=15, sticky="W")
+	popup_grp.mainloop()
+
+
 try:
 	client.sendall(name.encode())
 	result = client.recv(14).decode()
@@ -109,8 +139,6 @@ elif result == 'ack':
 	scrollbar_chat = Scrollbar(window)
 	chat_box = Text(window, wrap="word", bg="black", fg="white", yscrollcommand=scrollbar_chat.set, state="disabled")
 	chat_box.place(x=5, y=50, width=450, height=500)
-	# scrollbar_chat.config(command=chat_box.yview)
-	# scrollbar_chat.place(x=445, y=50, anchor="w")
 
 	# groups on the server
 	def create_group():
@@ -172,12 +200,13 @@ elif result == 'ack':
 	file_attachment = False
 	filename = ''
 	conf_file = StringVar()
-
+	conf_file.set('ack')
+	prev_group = 'None'
+	# is_inGroup = False
 
 	def send_msg():
-		global file_attachment, filename, option, stop_thread, sync_ok, conf_file
+		global file_attachment, filename, option, stop_thread, sync_ok_file, conf_file, radiobuttons_group, prev_group
 
-		conf_file.set('nack')
 		msg = msg_box.get("1.0", "end-1c")
 		to = "*"*255
 		ok = False
@@ -185,18 +214,25 @@ elif result == 'ack':
 			if selected_group.get() != 'None':
 				option = '2'
 				to = selected_group.get()
-				selected_person.set('')
+				selected_person.set(None)
 				file_attachment = False
+				if prev_group != to:
+					prev_group = selected_group.get()
+					popup_join_group()
 			elif selected_person.get() != '':
 				option = '1'
 				to = selected_person.get()
 				selected_group.set('None')
+				radiobuttons_group[0].select()
+				prev_group = 'None'
 			elif file_attachment:
 				msg_box.delete("1.0", "end")
 				ok = True
+				prev_group = 'None'
 			else:
 				ok = True
 				file_attachment = False
+				prev_group = 'None'
 
 			if not ok:
 				data = f"{option} {to} {name} {msg}"
@@ -222,13 +258,15 @@ elif result == 'ack':
 		if file_attachment:
 			option = '3'
 			selected_group.set('None')
+			radiobuttons_group[0].select()
 			to = selected_person.get()
 			file_attachment = False
+			prev_group = 'None'
 
 			try:
-				import pdb;pdb.set_trace()
 				info = os.stat(filename)
 				size = info.st_size
+
 				# convert to human readable format
 				def human_readable(size, decimal=2):
 					for unit in ['bytes', 'KB', 'MB', 'GB', 'TB', 'PB']:
@@ -240,30 +278,30 @@ elif result == 'ack':
 
 				size = human_readable(size)
 
-				data = f"{option} {to} {name} {size}"
+				data = f"{option} {to} {name} {size} {os.path.basename(filename)}"
 				client.sendall(data.encode())
 
-				time.sleep(0.5)
-
-				data = f"{os.path.basename(filename)}"
-				client.sendall(data.encode())
-
-				while not sync_ok:
-					pass
+				# while not sync_ok_file:
+				# 	pass
 
 				if conf_file.get() == 'ack':
+					chat_box.config(state="normal")
+					chat_box.insert("end", "Sending file...")
+					chat_box.config(state="disabled")
+
 					with open(filename, "rb") as reader:
 						while True:
 							content = reader.read(36050)
 							if not content:
 								break
 
-							msg = content
+							msg = content.replace(b'\x00', b'\\x00')
 							client.sendall(msg)
-							time.sleep(0.5)
+							# time.sleep(0.5)
 
+					time.sleep(0.5)
 					chat_box.config(state="normal")
-					chat_box.insert("end", f" <File - You>  {os.path.basename(filename)}\n")
+					chat_box.insert("end", f" Done\n<File - You>  {os.path.basename(filename)}\n")
 					chat_box.config(state="disabled")
 					msg_box.delete("1.0", "end")
 
@@ -290,7 +328,7 @@ elif result == 'ack':
 
 
 	def receive_msg():
-		global stop_thread, radiobuttons_persons, PERSONS, selected_person, GROUPS, radiobuttons_group, selected_group, conf_file, sync_ok
+		global stop_thread, radiobuttons_persons, PERSONS, selected_person, GROUPS, radiobuttons_group, selected_group, conf_file, sync_ok_file
 
 		while True:
 			try:
@@ -312,27 +350,31 @@ elif result == 'ack':
 					chat_box.config(state="disabled")
 				# Send file
 				elif data[0] == '3':
-					import pdb;pdb.set_trace()
 					sender = data[2]
-					size = ' '.join(data[3:])
-					filename = client.recv(36050).decode()
+					size = data[3]
+					filename = ' '.join(data[4:])
 
-					popup_confirm_file(size=size, file=filename, sender=sender)
+					# popup_confirm_file(size=size, file=filename, sender=sender)
 
-					sync_ok = True
+					# sync_ok_file = True
 
 					if conf_file.get() == 'ack':
+						chat_box.config(state="normal")
+						chat_box.insert("end", "Receiving file...")
+						chat_box.config(state="disabled")
+
 						with open(os.path.join(".", filename), "wb") as writer:
 							while True:
 								data = client.recv(36050)
-								if data.decode() == 'Done':
+								if data == b'Done':
 									break
 
+								data = data.replace(b'\\x00', b'\x00')
 								writer.write(data)
 
 
 						chat_box.config(state="normal")
-						chat_box.insert("end", f" <File - {data[2]}>  {' '.join(data[3:])}\n")
+						chat_box.insert("end", f" Done\n<File - {sender}>  {filename}\n")
 						chat_box.config(state="disabled")
 				# Update list of users
 				elif data[0] == '4':
@@ -376,41 +418,6 @@ elif result == 'ack':
 
 	receive_thread = threading.Thread(target=receive_msg)
 	receive_thread.start()
-
-
-	# def popup_join_group(GROUPS, selected_group):
-	# 	def join_group():
-	# 		for grp, pwd in GROUPS:
-	# 			if selected_group.get() == grp and et_password.get() == pwd:
-	# 				option = '6'
-	# 				data = f"{option} {selected_group.get()} {name} join"
-	# 				try:
-	# 					client.sendall(data.encode())
-	# 				except:
-	# 					clinet.close()
-	# 				option = ''
-	# 				break
-
-	# 		popup_grp.destroy()
-
-	# 	prev_group = 'None'
-	# 	while not stop_thread:
-	# 		if selected_group.get() != prev_group:
-	# 			prev_group = selected_group.get()
-	# 			popup_grp = Tk()
-	# 			popup_grp.wm_title("Join Group")
-	# 			popup_grp.geometry("300x200+700+300")
-	# 			popup_grp.configure(bg="black")
-	# 			popup_grp.resizable(False, False)
-	# 			Label(popup_grp, text=f"You want to join to {selected_group.get()} group!", bg="black", fg="green").place(x=80, y=10, height=18)
-	# 			Label(popup_grp, text="Password: ", bg="black", fg="white").grid(row=1, column=0, padx=(20, 10), pady=30, sticky="W")
-	# 			et_password = Entry(popup_grp, width=20, bg="white")
-	# 			et_password.grid(row=1, column=1, pady=10, sticky="W")
-	# 			Button(popup_grp, text="Join", command=join_group).grid(row=2, column=1, padx=20, pady=15, sticky="W")
-	# 			popup_grp.mainloop()
-
-	# join_group_thread = threading.Thread(target=popup_join_group, args=(GROUPS, selected_group))
-	# join_group_thread.start()
 
 	window.mainloop()
 	stop_thread = True
